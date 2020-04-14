@@ -266,7 +266,8 @@ class RPSGame
 
   # rubocop: disable Metrics/MethodLength
   # disabling because 'play' really needs all of these to make the game work
-  # & I don't want to consolidate more methods; I choose clarity
+  # & I don't want to consolidate more methods in order to make methods have
+  # too many purposes
   def play
     display_welcome_message
     loop do
