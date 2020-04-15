@@ -5,6 +5,8 @@ class Move
     @value
   end
 
+  protected
+
   def beats?(other_move)
     @beats.include?(other_move.to_s)
   end
@@ -94,6 +96,21 @@ end
 class Human < Player
   attr_accessor :score
 
+  def choose
+    temp = nil
+    loop do
+      puts "Please choose rock, paper, scissors, lizard, or spock "\
+           "(by name or 'r', 'p', 'sc', 'l', or 'sp'):"
+      temp = gets.chomp
+      break if Player::VALS.keys.any? { |n| n == temp } ||
+               Player::VALUES.include?(temp)
+      puts "Sorry, invalid choice. Please try again."
+    end
+    self.move = VALS[VALS.select { |n| temp.start_with?(n) }.keys.first]
+  end
+
+  private
+  
   def set_name
     n = ''
     loop do
@@ -104,19 +121,6 @@ class Human < Player
     end
     self.name = n
   end
-
-  def choose
-    temp = nil
-    loop do
-      puts "Please choose rock, paper, scissors, lizard, or spock "\
-           "(or a first letter of the options):"
-      temp = gets.chomp
-      break if Player::VALS.keys.any? { |n| n == temp } ||
-               Player::VALUES.include?(temp)
-      puts "Sorry, invalid choice. Please try again."
-    end
-    self.move = VALS[VALS.select { |n| temp.start_with?(n) }.keys.first]
-  end
 end
 
 class Computer < Player
@@ -124,38 +128,72 @@ class Computer < Player
 end
 
 class R2D2 < Computer
-  def set_name
-    @name = "R2D2"
-  end
-
   def choose
     self.move = Rock.new
+  end
+
+  private
+
+  def set_name
+    @name = "R2D2"
   end
 end
 
 class Hal < Computer
-  def set_name
-    @name = "Hal"
-  end
-
   def choose
     self.move = [Paper.new, Paper.new, Paper.new, Lizard.new,
                  Lizard.new, Rock.new].sample
   end
+
+  private
+
+  def set_name
+    @name = "Hal"
+  end
 end
 
 class Watson < Computer
-  def set_name
-    @name = "Watson"
-  end
-
   def choose
     self.move = [Spock.new, Spock.new, Lizard.new,
                  Scissors.new, Scissors.new].sample
   end
+
+  private
+
+  def set_name
+    @name = "Watson"
+  end
 end
 
-class RPSGame
+module History
+  def display_history
+    return unless see_history?
+    puts "#{human.name}'s history has been: #{human.history}"
+    puts "#{computer.name}'s history has been: #{computer.history}"
+  end
+
+  def update_histories
+    human.update_history
+    computer.update_history
+  end
+
+  private
+
+  def see_history?
+    return false unless grand_winner?
+    response = nil
+    loop do
+      puts "Would you like to see the history of moves for the players? Y/N"
+      response = gets.chomp
+      break if ['y', 'n'].include?(response.downcase)
+      puts "Please type 'y' or 'n'"
+    end
+    response.downcase == 'y'
+  end
+end
+
+class RPSGame < Move
+  include History
   attr_accessor :human, :computer, :history
 
   def initialize
@@ -180,10 +218,22 @@ class RPSGame
     sleep 1
   end
 
-  def display_winner
+  private
+
+  def determine_winner
     if human.move.beats?(computer.move)
-      puts "#{human.name} won!"
+      return human
     elsif computer.move.beats?(human.move)
+      return computer
+    end
+  end
+
+  public
+
+  def display_winner
+    if determine_winner == human
+      puts "#{human.name} won!"
+    elsif determine_winner == computer
       puts "#{computer.name} won!"
     else
       puts "It's a tie!"
@@ -191,28 +241,12 @@ class RPSGame
   end
 
   def update_scores
-    if human.move.beats?(computer.move)
+    if determine_winner == human
       human.score += 1
-    elsif computer.move.beats?(human.move)
+    elsif determine_winner == computer
       computer.score += 1
     end
   end
-
-  # rubocop: disable Metrics/AbcSize
-  # decided to keep as is for sake of clarity
-  def display_history?
-    response = nil
-    loop do
-      puts "Would you like to see the history of moves for the players? Y/N"
-      response = gets.chomp
-      break if ['y', 'n'].include?(response.downcase)
-      puts "Please type 'y' or 'n'"
-    end
-    break if response.downcase == 'n'
-    puts "#{human.name}'s history has been: #{human.history}"
-    puts "#{computer.name}'s history has been: #{computer.history}"
-  end
-  # rubocop: enable Metrics/AbcSize, Metrics/MethodLength
 
   def display_scores
     sleep 1
@@ -221,31 +255,25 @@ class RPSGame
     sleep 1
   end
 
-  # rubocop: disable Metrics/MethodLength
-  # I've refactored a bit, but any more sacrifices clarity in my opinion.
-  def display_grand_winner
-    if human.num_score == Score::WIN_NUMBER
-      puts "AMAZING! #{human.name} is the grand winner!!"
-      display_history?
-      reset_scores
-    elsif computer.num_score == Score::WIN_NUMBER
-      puts "Gah, those computers. #{computer.name} is the grand winner!"
-      display_history?
-      reset_scores
-    else
-      puts "Who shall reach #{Score::WIN_NUMBER} first??"
-    end
-  end
-  # rubocop: enable Metrics/AbcSize, Metrics/MethodLength
-
-  def update_histories
-    human.update_history
-    computer.update_history
+  def grand_winner?
+    human.num_score == Score::WIN_NUMBER ||
+    computer.num_score == Score::WIN_NUMBER
   end
 
   def reset_scores
+    return unless grand_winner?
     human.score = 0
     computer.score = 0
+  end
+
+  def display_grand_winner
+    if human.num_score == Score::WIN_NUMBER
+      puts "AMAZING! #{human.name} is the grand winner!!"
+    elsif computer.num_score == Score::WIN_NUMBER
+      puts "Gah, those computers. #{computer.name} is the grand winner!"
+    else
+      puts "Who shall reach #{Score::WIN_NUMBER} first??"
+    end
   end
 
   def play_again?
@@ -265,9 +293,6 @@ class RPSGame
   end
 
   # rubocop: disable Metrics/MethodLength
-  # disabling because 'play' really needs all of these to make the game work
-  # & I don't want to consolidate more methods in order to make methods have
-  # too many purposes
   def play
     display_welcome_message
     loop do
@@ -280,6 +305,8 @@ class RPSGame
       update_histories
       display_scores
       display_grand_winner
+      display_history
+      reset_scores
       break unless play_again?
     end
     display_goodbye_message
