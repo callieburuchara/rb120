@@ -183,7 +183,7 @@ module History
     return false unless grand_winner?
     response = nil
     loop do
-      puts "Would you like to see the history of moves for the players? Y/N"
+      puts "Would you like to see the history of moves for the players? y/n"
       response = gets.chomp
       break if ['y', 'n'].include?(response.downcase)
       puts "Please type 'y' or 'n'"
@@ -285,7 +285,7 @@ class RPSGame < Move
       break if ['y', 'n'].include?(answer.downcase)
       puts "Come again? Answer must by y or n."
     end
-    answer == "y"
+    answer.downcase == "y"
   end
 
   def clear_screen
