@@ -42,12 +42,16 @@ class Board
     !!winning_marker
   end
 
+  def three_identical_markers?(squares)
+    markers = squares.select(&:marked?).map(&:marker)
+    return false if markers.size != 3
+    markers.uniq.size == 1
+  end
+
   def winning_marker
     WINNING_LINES.each do |line|
-      return TTTGame::HUMAN_MARKER if
-        line.all? { |num| @squares[num].marker == TTTGame::HUMAN_MARKER }
-      return TTTGame::COMPUTER_MARKER if
-        line.all? { |num| @squares[num].marker == TTTGame::COMPUTER_MARKER }
+      squares = @squares.values_at(*line)
+      return squares.first.marker if three_identical_markers?(squares)
     end
     nil
   end
@@ -73,6 +77,10 @@ class Square
   def unmarked?
     marker == INITIAL_MARKER
   end
+
+  def marked?
+    marker != INITIAL_MARKER
+  end
 end
 
 class Player
@@ -86,13 +94,18 @@ end
 class TTTGame
   HUMAN_MARKER = 'X'
   COMPUTER_MARKER = 'O'
+  FIRST_TO_MOVE = COMPUTER_MARKER
+
   attr_reader :board, :human, :computer
 
   def initialize
     @board = Board.new
     @human = Player.new(HUMAN_MARKER)
     @computer = Player.new(COMPUTER_MARKER)
+    @current_marker = FIRST_TO_MOVE
   end
+
+  private
 
   def display_welcome_message
     clear
@@ -115,6 +128,19 @@ class TTTGame
   def clear_screen_and_display_board
     clear
     display_board
+  end
+
+  def current_player_moves
+    @current_marker == HUMAN_MARKER ? human_moves : computer_moves
+    alternate_players
+  end
+
+  def alternate_players
+    if @current_marker == HUMAN_MARKER
+      @current_marker = COMPUTER_MARKER
+    else
+      @current_marker = HUMAN_MARKER
+    end
   end
 
   def human_moves
@@ -158,6 +184,7 @@ class TTTGame
 
   def reset
     board.reset
+    @current_marker = FIRST_TO_MOVE
     clear
   end
 
@@ -166,6 +193,8 @@ class TTTGame
     puts ''
   end
 
+  public
+
   def play
     display_welcome_message
 
@@ -173,12 +202,8 @@ class TTTGame
       display_board
 
       loop do
-        human_moves
+        current_player_moves
         break if board.someone_won? || board.full?
-
-        computer_moves
-        break if board.someone_won? || board.full?
-
         clear_screen_and_display_board
       end
       display_result
