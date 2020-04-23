@@ -1,5 +1,3 @@
-require 'pry'
-
 class Board
   attr_reader :squares
 
@@ -12,6 +10,7 @@ class Board
     reset
   end
 
+  # rubocop: disable Metrics/AbcSize, Metrics/MethodLength
   def draw
     puts"     |     |"
     puts"  #{@squares[1]}  |  #{@squares[2]}  |  #{@squares[3]} "
@@ -25,6 +24,7 @@ class Board
     puts"  #{@squares[7]}  |  #{@squares[8]}  |  #{@squares[9]}  "
     puts"     |     |"
   end
+  # rubocop: enable Metrics/AbcSize, Metrics/MethodLength
 
   def []=(key, marker)
     @squares[key].marker = marker
@@ -42,12 +42,6 @@ class Board
     !!winning_marker
   end
 
-  def three_identical_markers?(squares)
-    markers = squares.select(&:marked?).map(&:marker)
-    return false if markers.size != 3
-    markers.uniq.size == 1
-  end
-
   def winning_marker
     WINNING_LINES.each do |line|
       squares = @squares.values_at(*line)
@@ -58,6 +52,14 @@ class Board
 
   def reset
     (1..9).each { |key| @squares[key] = Square.new }
+  end
+
+  private
+
+  def three_identical_markers?(squares)
+    markers = squares.select(&:marked?).map(&:marker)
+    return false if markers.size != 3
+    markers.uniq.size == 1
   end
 end
 
@@ -83,6 +85,8 @@ class Square
   end
 end
 
+# I could just delete the Player class and use a data structure instead
+# since the class has no behaviors. But how would I do that?
 class Player
   attr_reader :marker
 
@@ -104,6 +108,29 @@ class TTTGame
     @computer = Player.new(COMPUTER_MARKER)
     @current_marker = FIRST_TO_MOVE
   end
+
+  # rubocop: disable Metrics/MethodLength
+  def play
+    display_welcome_message
+
+    loop do
+      display_board
+
+      loop do
+        current_player_moves
+        break if board.someone_won? || board.full?
+        clear_screen_and_display_board
+      end
+
+      display_result
+      break unless play_again?
+      reset
+      display_play_again_message
+    end
+
+    display_goodbye_message
+  end
+  # rubocop: enable Metrics/MethodLength
 
   private
 
@@ -136,11 +163,11 @@ class TTTGame
   end
 
   def alternate_players
-    if @current_marker == HUMAN_MARKER
-      @current_marker = COMPUTER_MARKER
-    else
-      @current_marker = HUMAN_MARKER
-    end
+    @current_marker = if @current_marker == HUMAN_MARKER
+                        COMPUTER_MARKER
+                      else
+                        HUMAN_MARKER
+                      end
   end
 
   def human_moves
@@ -180,7 +207,7 @@ class TTTGame
       puts "Sorry, must be (y)es or (n)o."
     end
     answer == 'y' || answer == 'yes'
-  end 
+  end
 
   def reset
     board.reset
@@ -191,28 +218,6 @@ class TTTGame
   def display_play_again_message
     puts "Let's play again!"
     puts ''
-  end
-
-  public
-
-  def play
-    display_welcome_message
-
-    loop do
-      display_board
-
-      loop do
-        current_player_moves
-        break if board.someone_won? || board.full?
-        clear_screen_and_display_board
-      end
-      display_result
-      break unless play_again?
-      reset
-      display_play_again_message
-    end
-
-    display_goodbye_message
   end
 end
 

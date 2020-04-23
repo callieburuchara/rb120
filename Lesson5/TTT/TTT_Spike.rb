@@ -42,12 +42,6 @@ class Board
     !!winning_marker
   end
 
-  def three_identical_markers?(squares)
-    markers = squares.select(&:marked?).map(&:marker)
-    return false if markers.size != 3
-    markers.uniq.size == 1
-  end
-
   def winning_marker
     WINNING_LINES.each do |line|
       squares = @squares.values_at(*line)
@@ -58,6 +52,14 @@ class Board
 
   def reset
     (1..9).each { |key| @squares[key] = Square.new }
+  end
+
+  private
+
+  def three_identical_markers?(squares)
+    markers = squares.select(&:marked?).map(&:marker)
+    return false if markers.size != 3
+    markers.uniq.size == 1
   end
 end
 
@@ -83,6 +85,8 @@ class Square
   end
 end
 
+# I could just delete the Player class and use a data structure instead
+# since the class has no behaviors. But how would I do that?
 class Player
   attr_reader :marker
 
