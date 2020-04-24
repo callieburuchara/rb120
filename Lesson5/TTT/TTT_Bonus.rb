@@ -12,32 +12,24 @@ class Board
     reset
   end
 
-  # rubocop: disable Metrics/AbcSize, Metrics/MethodLength
   def draw
-    puts"     |     |"
-    puts"  #{@squares[1]}  |  #{@squares[2]}  |  #{@squares[3]} "
-    puts"     |     |"
-    puts"-----+-----+-----"
-    puts"     |     |"
-    puts"  #{@squares[4]}  |  #{@squares[5]}  |  #{@squares[6]} "
-    puts"     |     |"
-    puts"-----+-----+-----"
-    puts"     |     |"
-    puts"  #{@squares[7]}  |  #{@squares[8]}  |  #{@squares[9]}  "
-    puts"     |     |"
+    print_row(1, 2, 3)
+    print_center
+    print_row(4, 5, 6)
+    print_center
+    print_row(7, 8, 9)
   end
-  # rubocop: enable Metrics/AbcSize, Metrics/MethodLength
 
   def []=(key, marker)
-    @squares[key].marker = marker
+    squares[key].marker = marker
   end
 
   def [](key)
-    @squares[key].marker
+    squares[key].marker
   end
 
   def unmarked_keys
-    @squares.select { |_, marker| marker.unmarked? }.keys
+    squares.select { |_, marker| marker.unmarked? }.keys
   end
 
   def full?
@@ -50,14 +42,14 @@ class Board
 
   def winning_marker
     WINNING_LINES.each do |line|
-      squares = @squares.values_at(*line)
-      return squares.first.marker if three_identical_markers?(squares)
+      temp_squares = squares.values_at(*line)
+      return temp_squares.first.marker if three_identical_markers?(temp_squares)
     end
     nil
   end
 
   def reset
-    (1..9).each { |key| @squares[key] = Square.new }
+    (1..9).each { |key| squares[key] = Square.new }
   end
 
   def at_risk_square_offense
@@ -72,17 +64,28 @@ class Board
     get_exact_at_risk_square(at_risk)
   end
 
-
   private
+
+  def print_center
+    puts '-----+-----+-----'
+  end
+
+  def print_row(sq1, sq2, sq3)
+    puts '     |     |'
+    puts "  #{squares[sq1]}  |  #{squares[sq2]}  | #{squares[sq3]}"
+    puts '     |     |'
+  end
 
   def at_risk_line(this_marker)
     WINNING_LINES.select do |line|
-      line.map {|num| @squares[num].marker}.count(this_marker) == 2
+      line.map { |num| squares[num].marker }.count(this_marker) == 2
     end
   end
 
   def get_exact_at_risk_square(array)
-    array.first.select {|num| @squares[num].marker == Square::INITIAL_MARKER}.first
+    array.last.select do |num|
+      squares[num].marker == Square::INITIAL_MARKER
+    end.first
   end
 
   def three_identical_markers?(squares)
@@ -117,19 +120,42 @@ end
 # I could just delete the Player class and use a data structure instead
 # since the class has no behaviors. But how would I do that?
 class Player
-  attr_reader :marker 
+  attr_reader :marker, :name
   attr_accessor :score
 
   def initialize(marker)
     @marker = marker
     @score = 0
+    set_name
+  end
+
+  def set_name
+    system 'clear'
+    if marker == TTTGame::COMPUTER_MARKER
+      @name = %w(K9 R2D2 C3PO BB-8).sample
+    else
+      name = nil
+      puts "Before we get started..."
+      sleep 1
+      loop do
+        puts "What can we call you, adventurous one?"
+        name = gets.chomp
+        break unless name.strip.empty?
+        puts "Sorry, but we reallllly need to know."
+      end
+      @name = name.capitalize
+      puts "What a great name."
+      sleep 1.5
+    end
   end
 end
 
 class TTTGame
   HUMAN_MARKER = 'X'
   COMPUTER_MARKER = 'O'
-  FIRST_TO_MOVE = HUMAN_MARKER
+  CHOOSE = '?'
+  FIRST_TO_MOVE = CHOOSE
+  # FIRST_TO_MOVE options: HUMAN_MARKER, COMPUTER_MARKER, or '?'
   GRAND_WINNER_NUM = 2
 
   attr_reader :board, :human, :computer
@@ -168,24 +194,24 @@ class TTTGame
   private
 
   def joinor(array)
-    return "#{array[0]}" if array.size == 1
+    return (array[0]).to_s if array.size == 1
     return array.join(' or ') if array.size == 2
-    array[0..-2].join(', ') + ', or ' + "#{array[-1]}"
+    array[0..-2].join(', ') + ', or ' + (array[-1]).to_s
   end
 
   def display_welcome_message
     clear
-    puts "Hello person! Welcome to Tic-Tac-Toe!"
+    puts "Let's get started with some Tic-Tac-Toe, #{human.name}!"
     puts " "
     sleep 1
   end
 
   def display_goodbye_message
-    puts "Thanks for playing Tic-Tac-Toe, person! Buh-bye for now!"
+    puts "Thanks for playing Tic-Tac-Toe, #{human.name}! Buh-bye for now!"
   end
 
   def display_board
-    puts "You're a #{human.marker}. Computer is a #{computer.marker}."
+    puts "You're an #{human.marker}. #{computer.name} is an #{computer.marker}."
     puts ""
     board.draw
     puts ""
@@ -197,8 +223,25 @@ class TTTGame
   end
 
   def current_player_moves
+    if @current_marker == CHOOSE
+      choose_first_player
+    end
     @current_marker == HUMAN_MARKER ? human_moves : computer_moves
     alternate_players
+  end
+
+  def choose_first_player
+    preference = nil
+    loop do
+      puts "Who would you like to go first, #{human.name}? " 
+      puts "You? (type 'Me') or #{computer.name}? (type #{computer.name})"
+      preference = gets.chomp.downcase
+      break if ['me', "#{computer.name.downcase}"].include?(preference)
+      puts "Your answer was unclear. Let's try that again..."
+      sleep 0.5 
+    end
+    preference == 'me' ? @current_marker = HUMAN_MARKER : @current_marker = COMPUTER_MARKER
+    current_player_moves
   end
 
   def alternate_players
@@ -220,15 +263,27 @@ class TTTGame
     board[square] = human.marker
   end
 
+  def offense_square
+    board.at_risk_square_offense
+  end
+
+  def defense_square
+    board.at_risk_square_defense
+  end
+
+  def random_square
+    board.unmarked_keys.sample
+  end
+
   def computer_moves
-    if !!board.at_risk_square_offense
-      board[board.at_risk_square_offense] = computer.marker
-    elsif !!board.at_risk_square_defense
-      board[board.at_risk_square_defense] = computer.marker
+    if offense_square
+      board[offense_square] = computer.marker
+    elsif defense_square
+      board[defense_square] = computer.marker
     elsif board[5] == Square::INITIAL_MARKER
       board[5] = computer.marker
     else
-      board[board.unmarked_keys.sample] = computer.marker
+      board[random_square] = computer.marker
     end
   end
 
@@ -236,13 +291,17 @@ class TTTGame
     clear_screen_and_display_board
     case board.winning_marker
     when human.marker then    puts "You won!"
-    when computer.marker then puts "The computer won!"
+    when computer.marker then puts "#{computer.name} won!"
     else                      puts "It's a tie!"
     end
 
-    puts "Your score is #{human.score} " +
-         "and the computer's score is #{computer.score}."
+    display_score
     display_grand_winner_status
+  end
+
+  def display_score
+    puts "Your score is #{human.score} " \
+         "and #{computer.name}'s score is #{computer.score}."
   end
 
   def display_grand_winner_status
@@ -250,7 +309,7 @@ class TTTGame
       puts "Congratulations! You are the grand winner!!"
       reset_scores
     elsif determine_grand_winner == computer
-      puts "Better luck next time...Computer is the grand winner!"
+      puts "Better luck next time...#{computer.name} is the grand winner!"
       reset_scores # should this be in this method?
     else
       puts "Who will make it to #{GRAND_WINNER_NUM} points first?"
@@ -259,9 +318,9 @@ class TTTGame
 
   def determine_grand_winner
     if human.score == GRAND_WINNER_NUM
-      return human
+      human
     elsif computer.score == GRAND_WINNER_NUM
-      return computer
+      computer
     end
   end
 
@@ -276,7 +335,6 @@ class TTTGame
     human.score = 0
     computer.score = 0
   end
-
 
   def clear
     system 'clear'
