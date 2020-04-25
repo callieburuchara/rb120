@@ -1,5 +1,3 @@
-require 'pry'
-
 class Board
   attr_reader :squares
 
@@ -117,8 +115,6 @@ class Square
   end
 end
 
-# I could just delete the Player class and use a data structure instead
-# since the class has no behaviors. But how would I do that?
 class Player
   attr_reader :marker, :name
   attr_accessor :score
@@ -129,24 +125,32 @@ class Player
     set_name
   end
 
+  private
+
   def set_name
     system 'clear'
     if marker == TTTGame::COMPUTER_MARKER
-      @name = %w(K9 R2D2 C3PO BB-8).sample
+      set_computer_name
     else
-      name = nil
-      puts "Before we get started..."
-      sleep 1
-      loop do
-        puts "What can we call you, adventurous one?"
-        name = gets.chomp
-        break unless name.strip.empty?
-        puts "Sorry, but we reallllly need to know."
-      end
-      @name = name.capitalize
-      puts "What a great name."
-      sleep 1.5
+      set_human_name
     end
+  end
+
+  def set_human_name
+    name = nil
+    loop do
+      puts "Before we get started...What can we call you, adventurous one?"
+      name = gets.chomp
+      break unless name.strip.empty?
+      puts "Sorry, but we reallllly need to know."
+    end
+    @name = name.capitalize
+    puts "What a great name."
+    sleep 1.5
+  end
+
+  def set_computer_name
+    @name = %w(K9 R2D2 C3PO BB-8).sample
   end
 end
 
@@ -155,8 +159,8 @@ class TTTGame
   COMPUTER_MARKER = 'O'
   CHOOSE = '?'
   FIRST_TO_MOVE = CHOOSE
-  # FIRST_TO_MOVE options: HUMAN_MARKER, COMPUTER_MARKER, or '?'
-  GRAND_WINNER_NUM = 2
+  # FIRST_TO_MOVE options: HUMAN_MARKER, COMPUTER_MARKER, or CHOOSE
+  GRAND_WINNER_NUM = 5
 
   attr_reader :board, :human, :computer
 
@@ -170,6 +174,7 @@ class TTTGame
   # rubocop: disable Metrics/MethodLength
   def play
     display_welcome_message
+    choose_first_player if @current_marker == CHOOSE
 
     loop do
       display_board
@@ -180,8 +185,7 @@ class TTTGame
         clear_screen_and_display_board
       end
 
-      update_scores
-      display_result_and_score
+      update_and_display_numbers
       break unless play_again?
       reset
       display_play_again_message
@@ -193,6 +197,11 @@ class TTTGame
 
   private
 
+  def update_and_display_numbers
+    update_scores
+    display_result_and_score
+  end
+
   def joinor(array)
     return (array[0]).to_s if array.size == 1
     return array.join(' or ') if array.size == 2
@@ -201,7 +210,7 @@ class TTTGame
 
   def display_welcome_message
     clear
-    puts "Let's get started with some Tic-Tac-Toe, #{human.name}!"
+    puts "Let's get started with some Tic-Tac-Toe!"
     puts " "
     sleep 1
   end
@@ -223,25 +232,32 @@ class TTTGame
   end
 
   def current_player_moves
-    if @current_marker == CHOOSE
-      choose_first_player
-    end
     @current_marker == HUMAN_MARKER ? human_moves : computer_moves
     alternate_players
   end
 
-  def choose_first_player
+  def ask_first_player
     preference = nil
     loop do
-      puts "Who would you like to go first, #{human.name}? " 
-      puts "You? (type 'Me') or #{computer.name}? (type #{computer.name})"
+      puts "Who would you like to go first, #{human.name}? "
+      puts "You? (type 'Me' or 'M') or #{computer.name}? " +
+            "(type 'Computer' or 'C')"
       preference = gets.chomp.downcase
-      break if ['me', "#{computer.name.downcase}"].include?(preference)
+      break if %w(me m computer c).include?(preference)
       puts "Your answer was unclear. Let's try that again..."
-      sleep 0.5 
+      sleep 0.5
     end
-    preference == 'me' ? @current_marker = HUMAN_MARKER : @current_marker = COMPUTER_MARKER
-    current_player_moves
+    preference
+  end
+
+  def choose_first_player
+    preference = ask_first_player
+    @current_marker = case preference
+                      when 'me' then HUMAN_MARKER
+                      when 'm'  then HUMAN_MARKER
+                      when 'c' then  COMPUTER_MARKER
+                      else           COMPUTER_MARKER
+                      end
   end
 
   def alternate_players
@@ -281,10 +297,18 @@ class TTTGame
     elsif defense_square
       board[defense_square] = computer.marker
     elsif board[5] == Square::INITIAL_MARKER
-      board[5] = computer.marker
+      choose_fifth_square
     else
-      board[random_square] = computer.marker
+      choose_random_square
     end
+  end
+
+  def choose_fifth_square
+    board[5] = computer.marker
+  end
+
+  def choose_random_square
+    board[random_square] = computer.marker
   end
 
   def display_result_and_score
