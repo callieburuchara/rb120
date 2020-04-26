@@ -1,3 +1,5 @@
+require 'pry'
+
 class Board
   attr_reader :squares
 
@@ -51,13 +53,13 @@ class Board
   end
 
   def at_risk_square_offense
-    at_risk = at_risk_line(TTTGame::COMPUTER_MARKER)
+    at_risk = at_risk_line(computer.marker)
     return nil if at_risk.empty?
     get_exact_at_risk_square(at_risk)
   end
 
   def at_risk_square_defense
-    at_risk = at_risk_line(TTTGame::HUMAN_MARKER)
+    at_risk = at_risk_line(human.marker)
     return nil if at_risk.empty?
     get_exact_at_risk_square(at_risk)
   end
@@ -115,66 +117,61 @@ class Square
   end
 end
 
+# I could just delete the Player class and use a data structure instead
+# since the class has no behaviors. But how would I do that?
 class Player
   attr_reader :marker, :name
   attr_accessor :score
 
-  def initialize(marker)
-    @marker = marker
+  def initialize
+    @marker = "waiting"
     @score = 0
-    set_name
   end
 
-  private
-
-  def set_name
+  def set_name(name)
     system 'clear'
-    if marker == TTTGame::COMPUTER_MARKER
-      set_computer_name
+    binding.pry
+    if marker == computer.marker
+      @name = %w(K9 R2D2 C3PO BB-8).sample
     else
-      set_human_name
+      name = nil
+      puts "Before we get started..."
+      sleep 1
+      loop do
+        puts "What can we call you, adventurous one?"
+        name = gets.chomp
+        break unless name.strip.empty?
+        puts "Sorry, but we reallllly need to know."
+      end
+      @name = name.capitalize
+      puts "What a great name."
+      sleep 1.5
     end
-  end
-
-  def set_human_name
-    name = nil
-    loop do
-      puts "Before we get started...What can we call you, adventurous one?"
-      name = gets.chomp
-      break unless name.strip.empty?
-      puts "Sorry, but we reallllly need to know."
-    end
-    @name = name.capitalize
-    puts "What a great name."
-    sleep 1.5
-  end
-
-  def set_computer_name
-    @name = %w(K9 R2D2 C3PO BB-8).sample
   end
 end
 
 class TTTGame
-  HUMAN_MARKER = 'X'
-  COMPUTER_MARKER = 'O'
   CHOOSE = '?'
   FIRST_TO_MOVE = CHOOSE
-  # FIRST_TO_MOVE options: HUMAN_MARKER, COMPUTER_MARKER, or CHOOSE
-  GRAND_WINNER_NUM = 5
+  # FIRST_TO_MOVE options: human.marker, computer.marker, or '?'
+  GRAND_WINNER_NUM = 2
 
   attr_reader :board, :human, :computer
 
   def initialize
     @board = Board.new
-    @human = Player.new(HUMAN_MARKER)
-    @computer = Player.new(COMPUTER_MARKER)
+    @human = Player.new
+    @computer = Player.new
     @current_marker = FIRST_TO_MOVE
+    @computer.set_name(computer)
+    @human.set_name(human)
   end
 
   # rubocop: disable Metrics/MethodLength
   def play
     display_welcome_message
     choose_first_player if @current_marker == CHOOSE
+    choose_marker
 
     loop do
       display_board
@@ -185,7 +182,8 @@ class TTTGame
         clear_screen_and_display_board
       end
 
-      update_and_display_numbers
+      update_scores
+      display_result_and_score
       break unless play_again?
       reset
       display_play_again_message
@@ -197,9 +195,20 @@ class TTTGame
 
   private
 
-  def update_and_display_numbers
-    update_scores
-    display_result_and_score
+
+  def choose_marker
+    options = %w(X O)
+    preference = nil
+    loop do
+      puts "What marker would you like to use? X or O"
+      preference = gets.chomp.strip
+      break if options.include?(preference)
+      puts "Sorry, that's a no go."
+    end
+    binding.pry
+    human.marker = preference
+    options.delete(preference)
+    computer.marker = options[0]
   end
 
   def joinor(array)
@@ -232,39 +241,28 @@ class TTTGame
   end
 
   def current_player_moves
-    @current_marker == HUMAN_MARKER ? human_moves : computer_moves
+    @current_marker == human.marker ? human_moves : computer_moves
     alternate_players
   end
 
-  def ask_first_player
+  def choose_first_player
     preference = nil
     loop do
-      puts "Who would you like to go first, #{human.name}? "
-      puts "You? (type 'Me' or 'M') or #{computer.name}? " +
-            "(type 'Computer' or 'C')"
+      puts "Who would you like to go first, #{human.name}? " 
+      puts "You? (type 'Me') or #{computer.name}? (type #{computer.name})"
       preference = gets.chomp.downcase
-      break if %w(me m computer c).include?(preference)
+      break if ['me', "#{computer.name.downcase}"].include?(preference)
       puts "Your answer was unclear. Let's try that again..."
-      sleep 0.5
+      sleep 0.5 
     end
-    preference
-  end
-
-  def choose_first_player
-    preference = ask_first_player
-    @current_marker = case preference
-                      when 'me' then HUMAN_MARKER
-                      when 'm'  then HUMAN_MARKER
-                      when 'c' then  COMPUTER_MARKER
-                      else           COMPUTER_MARKER
-                      end
+    preference == 'me' ? @current_marker = human.marker : @current_marker = computer.marker
   end
 
   def alternate_players
-    @current_marker = if @current_marker == HUMAN_MARKER
-                        COMPUTER_MARKER
+    @current_marker = if @current_marker == human.marker
+                        computer.marker
                       else
-                        HUMAN_MARKER
+                        human.marker
                       end
   end
 
@@ -297,18 +295,10 @@ class TTTGame
     elsif defense_square
       board[defense_square] = computer.marker
     elsif board[5] == Square::INITIAL_MARKER
-      choose_fifth_square
+      board[5] = computer.marker
     else
-      choose_random_square
+      board[random_square] = computer.marker
     end
-  end
-
-  def choose_fifth_square
-    board[5] = computer.marker
-  end
-
-  def choose_random_square
-    board[random_square] = computer.marker
   end
 
   def display_result_and_score
