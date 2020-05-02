@@ -231,7 +231,7 @@ class Game
 
   def display_winner
     if someone_busted?
-      human.busted? ? (puts "You won!") : (puts "Dealer won!")
+      dealer.busted? ? (puts "You won!") : (puts "Dealer won!")
     else
       dealer.total > human.total ? (puts "Dealer won!") : (puts "You won!")
     end
